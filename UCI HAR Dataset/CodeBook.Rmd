@@ -1,0 +1,102 @@
+---
+title: "CodeBook"
+author: "Nikolos Peyralans"
+date: "March 4, 2016"
+output: html_document
+---
+
+##STEP I: Merging the data sets
+Load required packages:
+```{r, echo=FALSE}
+library(dplyr)
+library(plyr)
+library(data.table)
+```
+#####Activity data
+```{r}
+activity_test <- read.table("test/y_test.txt", header = FALSE)
+activity_train <- read.table("train/y_train.txt", header = FALSE)
+```
+
+#####Subject data
+```{r}
+subject_test <- read.table("test/subject_test.txt", header = FALSE)
+subject_train <- read.table("train/subject_train.txt", header = FALSE)
+```
+
+#####Features file
+```{r}
+features_test <- read.table("test/x_test.txt", header = FALSE)
+features_train <- read.table("train/x_train.txt", header = FALSE)
+```
+
+#####Merge data sets based on rows
+```{r}
+subject_data <- rbind(subject_train, subject_test)
+activity_data <- rbind(activity_train, activity_test)
+features_data <- rbind(features_train, features_test)
+```
+
+#####Name the columns
+```{r}
+names(subject_data) <- "subject"
+names(activity_data) <- "activity"
+features_data_names <- read.table("features.txt",head=FALSE)
+names(features_data) <- features_data_names$V2
+```
+
+#####Merge all of this data with columns "subject", "activity", and "features"
+```{r}
+subject_activity_data <- cbind(subject_data, activity_data)
+all_data <- cbind(features_data, subject_activity_data)
+```
+
+##STEP II: Extracting mean and standard deviation records
+#####Use regular expressions to extract mean and standard deviation records
+```{r}
+mean_sd_features_names <- features_data_names$V2[grep("mean\\(\\)|std\\(\\)", features_data_names$V2)]
+```
+#####Prepare data frame for values
+```{r}
+selected_names <- c(as.character(mean_sd_features_names), "subject", "activity")
+```
+#####Make the data frame with only mean and sd values
+```{r}
+mean_sd_data <- subset(all_data, select=selected_names)
+```
+##STEP III: Naming
+#####Change activity labels
+```{r}
+mean_sd_data$activity[mean_sd_data$activity == 1] <- "walking"
+mean_sd_data$activity[mean_sd_data$activity == 2] <- "walking_upstairs"
+mean_sd_data$activity[mean_sd_data$activity == 3] <- "walking_downstairs"
+mean_sd_data$activity[mean_sd_data$activity == 4] <- "sitting"
+mean_sd_data$activity[mean_sd_data$activity == 5] <- "standing"
+mean_sd_data$activity[mean_sd_data$activity == 6] <- "laying"
+```
+#####Factorize
+```{r}
+mean_sd_data$activity <- as.factor(mean_sd_data$activity)
+```
+#####Change the names of the data 
+```{r}
+
+names(mean_sd_data) <- gsub("^t", "time", names(mean_sd_data))
+names(mean_sd_data) <- gsub("^f", "frequency", names(mean_sd_data))
+names(mean_sd_data) <- gsub("Acc", "Accelerometer", names(mean_sd_data))
+names(mean_sd_data) <- gsub("Gyro", "Gyroscope", names(mean_sd_data))
+names(mean_sd_data) <- gsub("Mag", "Magnitude", names(mean_sd_data))
+names(mean_sd_data) <- gsub("BodyBody", "Body", names(mean_sd_data))
+```
+##STEP IV: Making an independent data set with average of each variable for each activity and each subject
+```{r}
+mean_sub_act <- aggregate(. ~subject + activity, mean_sd_data, mean)
+```
+#####Order it by subject
+```{r}
+mean_sub_act <- mean_sub_act[order(mean_sub_act$subject, mean_sub_act$activity),]
+```
+#####Write the new data set to a file
+```{r}
+write.table(mean_sub_act, file = "mean_subject_activity.txt", row.name=FALSE)
+```
